@@ -2,19 +2,125 @@
 <html>
 <head>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(90deg, #add8e6 0%, #90ee90 100%);
+            animation: gradient 5s linear infinite;
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0%;
+            }
+
+            100% {
+                background-position: -100%;
+            }
+        }
+
+        .container {
+            width: 80%;
+            max-width: 1200px;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            text-align: center;
+            animation: title-animation 2s infinite;
+        }
+
+        @keyframes title-animation {
+            0% {
+                color: #add8e6;
+            }
+
+            50% {
+                color: #90ee90;
+            }
+
+            100% {
+                color: #add8e6;
+            }
+        }
+
         .canvas {
             border: 1px solid black;
-            width: 500px;
-            height: 500px;
+            width: calc(100vw / 3 - 10px);
+            height: calc(100vw / 3 - 10px);
+            margin: 5px;
+            flex: 0 0 calc(100% / 3 - 10px);
+        }
+
+        #controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+            #controls input[type="file"],
+            #controls input[type="range"],
+            #controls button {
+                background: linear-gradient(to right, #add8e6, #90ee90);
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                animation: button-animation 2s infinite;
+                transition: background 0.5s;
+            }
+
+                #controls input[type="file"]:hover,
+                #controls input[type="range"]:hover,
+                #controls button:hover {
+                    background: linear-gradient(to right, #90ee90, #add8e6);
+                }
+
+        @keyframes button-animation {
+            0% {
+                background-position: 0%;
+            }
+
+            100% {
+                background-position: 100%;
+            }
+        }
+
+        #canvasContainer {
+            display: flex;
+            flex-wrap: wrap;
+            overflow-y: auto;
+            max-height: 60vh;
+            width: 100%;
+            justify-content: flex-start;
         }
     </style>
 </head>
 <body>
-    <input type="file" id="upload" accept="image/*" multiple>
-    <input type="range" id="borderSlider" min="0" max="50" value="10">
-    <label id="borderLabel">Border: 10%</label>
-    <div id="canvasContainer"></div>
-    <button id="download">Download All</button>
+    <div class="container">
+        <h1>White Boarder for Instagram</h1>
+        <div id="controls">
+            <input type="file" id="upload" accept="image/*" multiple>
+            <input type="range" id="borderSlider" min="0" max="50" value="10">
+            <label id="borderLabel">Border: 10%</label>
+            <button id="download">Download All</button>
+        </div>
+        <div id="canvasContainer"></div>
+    </div>
 
     <script>
         const upload = document.getElementById('upload');
@@ -25,44 +131,52 @@
 
         let borderPercent = borderSlider.value;
 
-        upload.addEventListener('change', function(e) {
+        upload.addEventListener('change', function (e) {
             canvasContainer.innerHTML = ''; // Clear previous canvases
             for (let file of this.files) {
                 const img = new Image();
-                img.onload = drawImage;
+                img.onload = function () { drawImage.call(this, file.name); };
                 img.src = URL.createObjectURL(file);
             }
         }, false);
 
-        borderSlider.addEventListener('input', function(e) {
+        borderSlider.addEventListener('input', function (e) {
             borderPercent = this.value;
             borderLabel.textContent = `Border: ${this.value}%`;
-            for (let file of upload.files) {
+            // Redraw all images with new border size
+            const images = Array.from(canvasContainer.children).map(canvas => canvas.dataset.src);
+            canvasContainer.innerHTML = ''; // Clear previous canvases
+            for (let src of images) {
                 const img = new Image();
-                img.onload = drawImage;
-                img.src = URL.createObjectURL(file);
+                img.onload = function () { drawImage.call(this, src); };
+                img.src = src;
             }
         }, false);
 
-        function drawImage() {
+        function drawImage(fileName) {
             const maxSize = Math.max(this.width, this.height);
             const borderSize = maxSize * borderPercent / 100;
             const canvas = document.createElement('canvas');
             canvas.className = 'canvas';
             canvas.width = canvas.height = maxSize + 2 * borderSize;
-            canvas.style.width = '500px'; // Display size
-            canvas.style.height = '500px'; // Display size
+            canvas.style.width = 'calc(100vw / 3 - 10px)'; // Display size
+            canvas.style.height = 'calc(100vw / 3 - 10px)'; // Display size
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(this, (canvas.width - this.width) / 2, (canvas.height - this.height) / 2);
+            canvas.dataset.fileName = fileName; // Store the original file name
+            canvas.dataset.src = this.src; // Store the image source
             canvasContainer.appendChild(canvas);
         }
 
-        download.addEventListener('click', function(e) {
+        download.addEventListener('click', function (e) {
             for (let canvas of canvasContainer.children) {
                 const link = document.createElement('a');
-                link.download = 'download.png';
+                const fileName = canvas.dataset.fileName;
+                const fileExtension = fileName.slice((fileName.lastIndexOf(".") - 1 >>> 0) + 2); // Get file extension
+                const baseName = fileName.slice(0, fileName.lastIndexOf(".")); // Get base name
+                link.download = `${baseName}WB.${fileExtension}`; // Add "WB" suffix to the original file name
                 link.href = canvas.toDataURL();
                 link.click();
             }
